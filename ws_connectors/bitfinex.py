@@ -51,8 +51,8 @@ def handle_event(event):
         channel_symbol = event['symbol']
         channel_symbols[channel_id] = channel_symbol
         books[channel_symbol] = {
-                                'bids': {},
-                                'asks': {}
+                                'bid': {},
+                                'ask': {}
                                 }
 
 def get_channel_id(data):
@@ -80,15 +80,15 @@ def update_order_book(book, stream_fields):
             # delete price level
             if count == 0:
                 if amount == NO_ASKS_AT_LEVEL:
-                    del book['asks'][price]
+                    del book['ask'][price]
                 elif amount == NO_BIDS_AT_LEVEL:
-                    del book['bids'][price]
+                    del book['bid'][price]
             else:
                 if amount > 0:
-                    book['bids'][price] = amount
+                    book['bid'][price] = amount
                 elif amount < 0:
                     amount = abs(amount) # easier to work with just positive mount
-                    book['asks'][price] = amount
+                    book['ask'][price] = amount
     except TypeError:
         print('ERROR')
     return book
@@ -129,9 +129,7 @@ if __name__ == '__main__':
                             freq='F1',
                             len='25' 
                             )
-    #asyncio.get_event_loop().run_until_complete(subscribe(ws_host, subscribe_request))
     loop = asyncio.get_event_loop()
     tasks = [subscribe(ws_host, subscribe_request), subscribe(ws_host, subscribe_request1)]
     loop.run_until_complete(asyncio.wait(tasks))
-    print('yea')
     loop.close()

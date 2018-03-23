@@ -8,8 +8,8 @@ import plotly.graph_objs as go
 from collections import deque
 
 import asyncio
-from .ws_connectors.bitfinex import subscribe
-from .slippage_calculator import slippage
+#from .ws_connectors.bitfinex import subscribe
+#from .slippage_calculator import slippage
 
 X = deque(maxlen=20)
 X.append(1)
