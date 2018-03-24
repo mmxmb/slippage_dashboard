@@ -58,8 +58,6 @@ class BitfinexOrderBookWS:
         self.books = {}
         self._channel_symbols = {}
 
-
-
     def subscribe_to_channels(self, subscribe_requests):
         """Subscribe to multiple order book websocket channels and keep up-to-date snapshots in books.
 
@@ -97,7 +95,7 @@ class BitfinexOrderBookWS:
                     elif is_data(message):
                         self.handle_data(message)
                     else:
-                        print('Unknown message type')
+                        print("Unknown message type")
                 except websockets.exceptions.ConnectionClosed:
                     print("Connection was closed")
 
