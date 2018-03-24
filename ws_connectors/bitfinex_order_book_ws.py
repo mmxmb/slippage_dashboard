@@ -19,6 +19,39 @@ class BitfinexOrderBookWS:
 
         Attributes:
             ws_host: A string representing a websocket (ws) endpoint to an exchange.
+            books: An empty dict that will be populated with snapshots
+                    of order books of trading pairs of interest and is continuously
+                    updated as long as ws connections are alive. Do not write to
+                    this dictionary. It's intended to act as a single one-way 
+                    channel between the thread running async ws connections to
+                    the exchange and other threads elsewhere in the code:
+                    the thread in subscribe_to_channels() writes to channel, 
+                    other threads read it.
+
+                    Example books dict after program ran for some time (tracking
+                    state of two trading pairs):
+                        books = {
+                                'tBTCUSD': {
+                                            'bid': {1000: 5, 500: 2},
+                                            'ask': {400: 3, 550: 4}
+                                           },
+                                'tETHUSD': {
+                                            'bid': {1100: 6, 650: 3},
+                                            'ask': {40: 9, 250: 5}
+                                           }
+                                }
+            _channel_symbols: A dict that maps channel ids to channel trading
+                pair symbols. E.g.: {12777: 'tETHUSD', 21246: 'tBTCUSD'}
+                Do not modify this dict.
+
+                Channel id is some arbitrary(?) id that Bitfinex assigns
+                to a channel once ws connection is established and
+                then includes this id in every subsequent message on
+                that channel. 
+
+                Trading pair symbol is the same as 'symbol' value
+                from the subscribe request to the channel. E.g:
+                tBTCUSD for trading pair BTCUSD.
 
         """
         self.ws_host = 'wss://api.bitfinex.com/ws/2'
@@ -40,28 +73,6 @@ class BitfinexOrderBookWS:
                     to the ws endpoint. Each dict contains info like pair name and
                     update frequency. See more in the API docs: 
                     https://bitfinex.readme.io/v2/reference#ws-public-order-books
-
-            Returns:
-                books: An empty dict that will be populated with snapshots
-                    of order books of trading pairs of interest and is continuously
-                    updated as long as ws connections are alive. Do not write to
-                    this dictionary. It's intended to act as a single one-way 
-                    channel between the thread running async ws connections to
-                    the exchange and other threads elsewhere in the code:
-                    this thread writes to channel, other threads read it.
-
-                    Example books dict after program ran for some time (tracking
-                    state of two trading pairs):
-                        books = {
-                                'tBTCUSD': {
-                                            'bid': {1000: 5, 500: 2},
-                                            'ask': {400: 3, 550: 4}
-                                           },
-                                'tETHUSD': {
-                                            'bid': {1100: 6, 650: 3},
-                                            'ask': {40: 9, 250: 5}
-                                           }
-                                }
 
         """
         tasks = [self.subscribe(request) for request in subscribe_requests]
@@ -93,7 +104,7 @@ class BitfinexOrderBookWS:
     def handle_event(self, event):
         event_type = event['event']
         if event_type == 'info':
-            # try getting info code
+            # TODO: do something with info events
             try:
                 info_code = event['code']
             except KeyError:
@@ -105,9 +116,9 @@ class BitfinexOrderBookWS:
             channel_symbol = event['symbol']
             self._channel_symbols[channel_id] = channel_symbol
             self.books[channel_symbol] = {
-                                    'bid': {},
-                                    'ask': {}
-                                    }
+                                          'bid': {},
+                                          'ask': {}
+                                         }
     @staticmethod
     def get_channel_id(data):
         """ Channel id is always the first element in snapshot/update list """
@@ -146,7 +157,7 @@ class BitfinexOrderBookWS:
                         amount = abs(amount) # easier to work with just positive mount
                         book['ask'][price] = amount
         except TypeError:
-            print('ERROR')
+            pass
         return book
 
     @staticmethod
@@ -192,4 +203,5 @@ if __name__ == '__main__':
     book_conn.subscribe_to_channels([subscribe_request_btc, subscribe_request_eth])
     while True:
         print(book_conn.books)
+        print(book_conn._channel_symbols)
         time.sleep(5)
