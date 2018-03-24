@@ -2,6 +2,7 @@ import json
 import asyncio
 import websockets
 import sys
+import queue
 # INFO CODES
 # 20051 - reconnect/restart
 # 20060 - maintenance start (pause all activity)
@@ -16,13 +17,13 @@ books = {}
 # price level (key) -> 
 
 
-async def subscribe(ws_host, subscribe_request):
+async def subscribe(ws_host, subscribe_request, queue):
     async with websockets.connect(ws_host) as ws:
         request = json.dumps(subscribe_request)
         await ws.send(request)
         # event is dict type, data is list type
         is_event = lambda o: isinstance(o, dict)
-        is_data= lambda o: isinstance(o, list)
+        is_data = lambda o: isinstance(o, list)
         while True:
             try:
                 message = await ws.recv()
@@ -31,6 +32,8 @@ async def subscribe(ws_host, subscribe_request):
                     handle_event(message)
                 elif is_data(message):
                     book = handle_data(message)
+                    print(book)
+                    queue.put(book)
                 else:
                     print('Unknown message type')
             except websockets.exceptions.ConnectionClosed:
@@ -109,9 +112,10 @@ def handle_data(data):
         stream_fields = get_stream_fields(data)
         book = update_order_book(book, stream_fields)
         books[symbol] = book
-        print(book, '\n\n\n')
+        return book
 
 if __name__ == '__main__':
+    queue = queue.Queue()
     ws_host = 'wss://api.bitfinex.com/ws/2'
     subscribe_request = dict( 
                             event='subscribe',
@@ -130,6 +134,6 @@ if __name__ == '__main__':
                             len='25' 
                             )
     loop = asyncio.get_event_loop()
-    tasks = [subscribe(ws_host, subscribe_request), subscribe(ws_host, subscribe_request1)]
+    tasks = [subscribe(ws_host, subscribe_request, queue), subscribe(ws_host, subscribe_request1, queue)]
     loop.run_until_complete(asyncio.wait(tasks))
     loop.close()
