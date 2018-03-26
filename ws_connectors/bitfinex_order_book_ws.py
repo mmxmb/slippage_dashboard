@@ -2,6 +2,7 @@ import json
 import asyncio
 import websockets
 import sys
+import threading
 
 # INFO CODES
 # 20051 - reconnect/restart
@@ -80,24 +81,28 @@ class BitfinexOrderBookWS:
         t.start()
 
     async def subscribe(self, subscribe_request):
-        async with websockets.connect(self.ws_host) as ws:
-            request = json.dumps(subscribe_request)
-            await ws.send(request)
-            # event is dict type, data is list type
-            is_event = lambda o: isinstance(o, dict)
-            is_data = lambda o: isinstance(o, list)
-            while True:
-                try:
-                    message = await ws.recv()
-                    message = json.loads(message)
-                    if is_event(message):
-                        self.handle_event(message)
-                    elif is_data(message):
-                        self.handle_data(message)
-                    else:
-                        print("Unknown message type")
-                except websockets.exceptions.ConnectionClosed:
-                    print("Connection was closed")
+        try:
+            async with websockets.connect(self.ws_host) as ws:
+                request = json.dumps(subscribe_request)
+                await ws.send(request)
+                # event is dict type, data is list type
+                is_event = lambda o: isinstance(o, dict)
+                is_data = lambda o: isinstance(o, list)
+                while True:
+                    try:
+                        message = await ws.recv()
+                        message = json.loads(message)
+                        if is_event(message):
+                            self.handle_event(message)
+                        elif is_data(message):
+                            self.handle_data(message)
+                        else:
+                            print("Unknown message type")
+                    except websockets.exceptions.ConnectionClosed:
+                        print("Connection was closed")
+                        sys.exit(1)
+        except websockets.exceptions.InvalidStatusCode as e:
+            print('Error while establishing WS connection: {}\nPlease try again later.'.format(e))
 
     def handle_event(self, event):
         event_type = event['event']
